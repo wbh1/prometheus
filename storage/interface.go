@@ -20,7 +20,6 @@ import (
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/tsdb/chunkenc"
 	"github.com/prometheus/prometheus/tsdb/chunks"
-	"github.com/prometheus/prometheus/tsdb/tombstones"
 )
 
 // The errors exposed.
@@ -159,6 +158,8 @@ type Appender interface {
 // SeriesSet contains a set of series.
 type SeriesSet interface {
 	Next() bool
+	// At returns full series. It has to be guaranteed that next or previous
+	// iterations do not hold data for the same series.
 	At() Series
 	Err() error
 }
@@ -202,6 +203,8 @@ type Series interface {
 // ChunkSeriesSet contains a set of chunked series.
 type ChunkSeriesSet interface {
 	Next() bool
+	// At returns full chunk series. It has to be guaranteed that next or previous
+	// iterations do not hold data for the same series.
 	At() ChunkSeries
 	Err() error
 }
@@ -224,15 +227,8 @@ type SampleIteratable interface {
 }
 
 type ChunkIteratable interface {
-	// ChunkIterator returns a new iterator that iterates over non-overlapping chunks of the series.
+	// Iterator returns a new iterator that iterates over non-overlapping chunks of the series.
 	Iterator() chunks.Iterator
-}
-
-// TODO(bwplotka): Remove in next Pr.
-type DeprecatedChunkSeriesSet interface {
-	Next() bool
-	At() (labels.Labels, []chunks.Meta, tombstones.Intervals)
-	Err() error
 }
 
 type Warnings []error

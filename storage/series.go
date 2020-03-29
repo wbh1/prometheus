@@ -91,6 +91,23 @@ func (it *listChunkSeriesIterator) Next() bool {
 
 func (it *listChunkSeriesIterator) Err() error { return nil }
 
+// ChunkSampleSeries contains a set of chunked series allowing only iterating over samples.
+type ChunkSampleSeriesSet interface {
+	Next() bool
+	At() ChunkSampleSeries
+	Err() error
+}
+
+// ChunkSampleSeries exposes a single time series and allows iterating over chunks's samples.
+type ChunkSampleSeries interface {
+	Labels
+	ChunkSampleIteratable
+}
+
+type ChunkSampleIteratable interface {
+	Iterator() SampleIteratable
+}
+
 type chunkSetToSeriesSet struct {
 	ChunkSeriesSet
 
@@ -104,29 +121,37 @@ func NewSeriesSetFromChunkSeriesSet(chk ChunkSeriesSet) SeriesSet {
 }
 
 func (c *chunkSetToSeriesSet) Next() bool {
-	if c.Err() != nil || !c.ChunkSeriesSet.Next() {
-		return false
+	for c.Err() == nil && c.ChunkSeriesSet.Next() {
+		iter := c.ChunkSeriesSet.At().Iterator()
+		c.sameSeriesChunks = c.sameSeriesChunks[:0]
+
+		for iter.Next() {
+			c.sameSeriesChunks = append(c.sameSeriesChunks, &chunkToSeriesDecoder{
+				// TODO(bwplotka): Can we provide any chunkenc buffer?
+				iter:   iter.At().Chunk.Iterator(nil),
+				labels: c.ChunkSeriesSet.At().Labels(),
+			})
+		}
+		if iter.Err() != nil {
+			c.chkIterErr = iter.Err()
+			break
+		}
+
+		if len(c.sameSeriesChunks) > 0 {
+			return true
+		}
+
+		// No chunks means series does not exists in this time range, continue.
+		// If iterations gave zero chunks, series still exists, just empty.
 	}
-
-	iter := c.ChunkSeriesSet.At().Iterator()
-	c.sameSeriesChunks = c.sameSeriesChunks[:0]
-
-	for iter.Next() {
-		c.sameSeriesChunks = append(c.sameSeriesChunks, &chunkToSeriesDecoder{
-			labels: c.ChunkSeriesSet.At().Labels(),
-			Meta:   iter.At(),
-		})
-	}
-
-	if iter.Err() != nil {
-		c.chkIterErr = iter.Err()
-		return false
-	}
-
-	return true
+	return false
 }
 
 func (c *chunkSetToSeriesSet) At() Series {
+	if len(c.sameSeriesChunks) == 1 {
+		return c.sameSeriesChunks[0]
+	}
+
 	// Series composed of same chunks for the same series.
 	return OverlappedSeriesMerge(c.sameSeriesChunks...)
 }
@@ -139,15 +164,17 @@ func (c *chunkSetToSeriesSet) Err() error {
 }
 
 type chunkToSeriesDecoder struct {
-	chunks.Meta
-
+	iter   chunkenc.Iterator
 	labels labels.Labels
 }
 
-func (s *chunkToSeriesDecoder) Labels() labels.Labels { return s.labels }
+func (s *chunkToSeriesDecoder) Labels() labels.Labels {
+	return s.labels
+}
 
-// TODO(bwplotka): Can we provide any chunkenc buffer?
-func (s *chunkToSeriesDecoder) Iterator() chunkenc.Iterator { return s.Chunk.Iterator(nil) }
+func (s *chunkToSeriesDecoder) Iterator() chunkenc.Iterator {
+	return s.iter
+}
 
 type seriesSetToChunkSet struct {
 	SeriesSet

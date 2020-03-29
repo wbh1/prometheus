@@ -171,8 +171,7 @@ type TSDBAdmin interface {
 // API can register a set of endpoints in a router and handle
 // them using the provided storage and query engine.
 type API struct {
-	// TODO(bwplotka): Change to SampleAndChunkQueryable in next PR.
-	Queryable   storage.Queryable
+	Queryable   storage.SampleAndChunkQueryable
 	QueryEngine *promql.Engine
 
 	targetRetriever       func(context.Context) TargetRetriever
@@ -1245,8 +1244,7 @@ func (api *API) remoteReadStreamedXORChunks(ctx context.Context, w http.Response
 				return err
 			}
 
-			// TODO(bwplotka): Use ChunkQuerier once ready in tsdb package.
-			querier, err := api.Queryable.Querier(ctx, query.StartTimestampMs, query.EndTimestampMs)
+			querier, err := api.Queryable.ChunkQuerier(ctx, query.StartTimestampMs, query.EndTimestampMs)
 			if err != nil {
 				return err
 			}
@@ -1274,7 +1272,7 @@ func (api *API) remoteReadStreamedXORChunks(ctx context.Context, w http.Response
 				return err
 			}
 
-			return remote.DeprecatedStreamChunkedReadResponses(
+			return remote.StreamChunkedReadResponses(
 				remote.NewChunkedWriter(w, f),
 				int64(i),
 				set,

@@ -618,16 +618,16 @@ type chainSeries struct {
 	series []Series
 }
 
-func (m *chainSeries) Labels() labels.Labels {
-	return m.labels
+func (s *chainSeries) Labels() labels.Labels {
+	return s.labels
 }
 
-func (m *chainSeries) Iterator() chunkenc.Iterator {
-	iterators := make([]chunkenc.Iterator, 0, len(m.series))
-	for _, s := range m.series {
-		iterators = append(iterators, s.Iterator())
+func (s *chainSeries) Iterator() chunkenc.Iterator {
+	iter := make([]chunkenc.Iterator, 0, len(s.series))
+	for _, s := range s.series {
+		iter = append(iter, s.Iterator())
 	}
-	return newChainSampleIterator(iterators)
+	return newChainSampleIterator(iter)
 }
 
 // chainSampleIterator is responsible to iterate over samples from different iterators of the same time series.
@@ -820,7 +820,7 @@ func (c *verticalChunkIterator) Next() bool {
 		}
 		overlapped = append(overlapped, &chunkToSeriesDecoder{
 			labels: c.labels,
-			Meta:   last,
+			iter:   last.Chunk.Iterator(nil),
 		})
 		last = next
 	}
@@ -832,7 +832,7 @@ func (c *verticalChunkIterator) Next() bool {
 	// Add last, not yet included overlap.
 	overlapped = append(overlapped, &chunkToSeriesDecoder{
 		labels: c.labels,
-		Meta:   c.At(),
+		iter:   c.At().Chunk.Iterator(nil),
 	})
 
 	// TODO(bwplotka): We could have a quick path for **exactly** the same chunks.

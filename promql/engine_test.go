@@ -601,7 +601,6 @@ load 10s
 		testutil.Ok(t, res.Err)
 		testutil.Equals(t, c.Result, res.Value)
 	}
-
 }
 
 func TestMaxQuerySamples(t *testing.T) {
@@ -1100,7 +1099,7 @@ func TestSubquerySelector(t *testing.T) {
 			testutil.Ok(t, err)
 
 			res := qry.Exec(test.Context())
-			testutil.Equals(t, c.Result.Err, res.Err)
+			testutil.Equals(t, c.Result.Err, res.Err, "errors do not match for query %s", c.Query)
 			mat := res.Value.(Matrix)
 			sort.Sort(mat)
 			testutil.Equals(t, c.Result.Value, mat)
