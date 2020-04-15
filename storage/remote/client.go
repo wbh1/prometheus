@@ -63,11 +63,29 @@ type ReadClient interface {
 }
 
 // newReadClient creates a new client for remote read.
-// Caller has to ensure there are no duplicated clients.
-func newReadClient(readQueries prometheus.Gauge, name string, conf *ClientConfig) (ReadClient, error) {
+func newReadClient(reg prometheus.Registerer, name string, conf *ClientConfig) (ReadClient, error) {
 	httpClient, err := config_util.NewClientFromConfig(conf.HTTPClientConfig, "remote_storage", false)
 	if err != nil {
 		return nil, err
+	}
+
+	queries := prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace:   namespace,
+			Subsystem:   subsystem,
+			Name:        "remote_read_queries",
+			Help:        "The number of in-flight remote read queries.",
+			ConstLabels: prometheus.Labels{remoteName: name, endpoint: conf.URL.String()},
+		},
+	)
+	if reg != nil {
+		if err := reg.Register(queries); err != nil {
+			if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+				queries = are.ExistingCollector.(prometheus.Gauge)
+			} else {
+				panic(err)
+			}
+		}
 	}
 
 	return &client{
@@ -75,7 +93,7 @@ func newReadClient(readQueries prometheus.Gauge, name string, conf *ClientConfig
 		url:         conf.URL,
 		client:      httpClient,
 		timeout:     time.Duration(conf.Timeout),
-		readQueries: readQueries,
+		readQueries: queries,
 	}, nil
 }
 

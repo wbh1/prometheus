@@ -53,8 +53,8 @@ type Storage struct {
 
 	// For reads.
 	queryables             []storage.SampleAndChunkQueryable
-	queries                *prometheus.GaugeVec
 	localStartTimeCallback startTimeCallback
+	reg                    prometheus.Registerer
 }
 
 // NewStorage returns a remote.Storage.
@@ -64,20 +64,9 @@ func NewStorage(l log.Logger, reg prometheus.Registerer, stCallback startTimeCal
 	}
 
 	s := &Storage{
-		logger: logging.Dedupe(l, 1*time.Minute),
-		queries: prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Namespace: namespace,
-				Subsystem: subsystem,
-				Name:      "remote_read_queries",
-				Help:      "The number of in-flight remote read queries.",
-			},
-			[]string{remoteName, endpoint},
-		),
+		logger:                 logging.Dedupe(l, 1*time.Minute),
 		localStartTimeCallback: stCallback,
-	}
-	if reg != nil {
-		reg.MustRegister(s.queries)
+		reg:                    reg,
 	}
 	s.rws = NewWriteStorage(s.logger, reg, walDir, flushDeadline)
 	return s
@@ -115,7 +104,7 @@ func (s *Storage) ApplyConfig(conf *config.Config) error {
 			name = rrConf.Name
 		}
 
-		c, err := newReadClient(s.queries.WithLabelValues(name, rrConf.URL.String()), name, &ClientConfig{
+		c, err := newReadClient(s.reg, name, &ClientConfig{
 			URL:              rrConf.URL,
 			Timeout:          rrConf.RemoteTimeout,
 			HTTPClientConfig: rrConf.HTTPClientConfig,
