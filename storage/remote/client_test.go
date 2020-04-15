@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
 	prom_testutil "github.com/prometheus/client_golang/prometheus/testutil"
 	config_util "github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
@@ -89,7 +88,6 @@ func TestReadQueryMetric(t *testing.T) {
 	var (
 		i      = int64(0)
 		wait   = make(chan struct{})
-		q      = &prompb.Query{}
 		server = httptest.NewServer(
 			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				switch atomic.AddInt64(&i, 1) {
@@ -115,20 +113,20 @@ func TestReadQueryMetric(t *testing.T) {
 		URL:     &config_util.URL{URL: serverURL},
 		Timeout: model.Duration(time.Second),
 	}
-	reg := prometheus.NewRegistry()
-	c1, err := newReadClient(reg, "foo", conf)
+
+	c1, err := newReadClient("foo", conf)
 	testutil.Ok(t, err)
 	testutil.Equals(t, 0.0, prom_testutil.ToFloat64(c1.(*client).readQueries))
 
-	c2, err := newReadClient(reg, "bar", conf)
+	c2, err := newReadClient("bar", conf)
 	testutil.Ok(t, err)
 	testutil.Equals(t, 0.0, prom_testutil.ToFloat64(c2.(*client).readQueries))
 
-	_, err = c1.Read(context.Background(), q)
+	_, err = c1.Read(context.Background(), &prompb.Query{})
 	testutil.ErrorEqual(t, errors.New("error reading response: snappy: corrupt input"), err)
-	_, err = c1.Read(context.Background(), q)
+	_, err = c1.Read(context.Background(), &prompb.Query{})
 	testutil.ErrorEqual(t, errors.Errorf("remote server %s returned HTTP status 500 Internal Server Error: error!", serverURL.String()), err)
-	_, err = c2.Read(context.Background(), q)
+	_, err = c2.Read(context.Background(), &prompb.Query{})
 	testutil.ErrorEqual(t, errors.New("error reading response: snappy: corrupt input"), err)
 
 	testutil.Equals(t, 0.0, prom_testutil.ToFloat64(c1.(*client).readQueries))
@@ -145,7 +143,7 @@ func TestReadQueryMetric(t *testing.T) {
 	go func() {
 		defer wg.Done()
 
-		_, err = c1.Read(ctx, q)
+		_, err = c1.Read(ctx, &prompb.Query{})
 		testutil.ErrorEqual(t, errors.New("error reading response: snappy: corrupt input"), err)
 	}()
 	for ctx.Err() == nil && atomic.LoadInt64(&i) < 4 {
@@ -158,7 +156,7 @@ func TestReadQueryMetric(t *testing.T) {
 	go func() {
 		defer wg.Done()
 
-		_, err = c2.Read(ctx, q)
+		_, err = c2.Read(ctx, &prompb.Query{})
 		testutil.ErrorEqual(t, errors.New("error reading response: snappy: corrupt input"), err)
 	}()
 	for ctx.Err() == nil && atomic.LoadInt64(&i) < 5 {
@@ -168,7 +166,7 @@ func TestReadQueryMetric(t *testing.T) {
 	testutil.Equals(t, 1.0, prom_testutil.ToFloat64(c2.(*client).readQueries))
 
 	// Add third client which will cause already exist metric err which should be handled and allow reusing same metric.
-	sameAsC2, err := newReadClient(reg, "bar", conf)
+	sameAsC2, err := newReadClient("bar", conf)
 	testutil.Ok(t, err)
 	testutil.Equals(t, 1.0, prom_testutil.ToFloat64(sameAsC2.(*client).readQueries))
 
@@ -176,7 +174,7 @@ func TestReadQueryMetric(t *testing.T) {
 	go func() {
 		defer wg.Done()
 
-		_, err = sameAsC2.Read(ctx, q)
+		_, err = sameAsC2.Read(ctx, &prompb.Query{})
 		testutil.ErrorEqual(t, errors.New("error reading response: snappy: corrupt input"), err)
 	}()
 	for ctx.Err() == nil && atomic.LoadInt64(&i) < 6 {

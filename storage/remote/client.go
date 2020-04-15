@@ -39,6 +39,20 @@ const maxErrMsgLen = 256
 
 var userAgent = fmt.Sprintf("Prometheus/%s", version.Version)
 
+var remoteReadQueries = prometheus.NewGaugeVec(
+	prometheus.GaugeOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "remote_read_queries",
+		Help:      "The number of in-flight remote read queries.",
+	},
+	[]string{remoteName, endpoint},
+)
+
+func init() {
+	prometheus.MustRegister(remoteReadQueries)
+}
+
 // client allows reading and writing from/to a remote HTTP endpoint.
 type client struct {
 	remoteName string // Used to differentiate clients in metrics.
@@ -63,29 +77,10 @@ type ReadClient interface {
 }
 
 // newReadClient creates a new client for remote read.
-func newReadClient(reg prometheus.Registerer, name string, conf *ClientConfig) (ReadClient, error) {
+func newReadClient(name string, conf *ClientConfig) (ReadClient, error) {
 	httpClient, err := config_util.NewClientFromConfig(conf.HTTPClientConfig, "remote_storage", false)
 	if err != nil {
 		return nil, err
-	}
-
-	queries := prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Namespace:   namespace,
-			Subsystem:   subsystem,
-			Name:        "remote_read_queries",
-			Help:        "The number of in-flight remote read queries.",
-			ConstLabels: prometheus.Labels{remoteName: name, endpoint: conf.URL.String()},
-		},
-	)
-	if reg != nil {
-		if err := reg.Register(queries); err != nil {
-			if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
-				queries = are.ExistingCollector.(prometheus.Gauge)
-			} else {
-				panic(err)
-			}
-		}
 	}
 
 	return &client{
@@ -93,7 +88,7 @@ func newReadClient(reg prometheus.Registerer, name string, conf *ClientConfig) (
 		url:         conf.URL,
 		client:      httpClient,
 		timeout:     time.Duration(conf.Timeout),
-		readQueries: queries,
+		readQueries: remoteReadQueries.WithLabelValues(name, conf.URL.String()),
 	}, nil
 }
 

@@ -54,7 +54,6 @@ type Storage struct {
 	// For reads.
 	queryables             []storage.SampleAndChunkQueryable
 	localStartTimeCallback startTimeCallback
-	reg                    prometheus.Registerer
 }
 
 // NewStorage returns a remote.Storage.
@@ -66,7 +65,6 @@ func NewStorage(l log.Logger, reg prometheus.Registerer, stCallback startTimeCal
 	s := &Storage{
 		logger:                 logging.Dedupe(l, 1*time.Minute),
 		localStartTimeCallback: stCallback,
-		reg:                    reg,
 	}
 	s.rws = NewWriteStorage(s.logger, reg, walDir, flushDeadline)
 	return s
@@ -104,7 +102,7 @@ func (s *Storage) ApplyConfig(conf *config.Config) error {
 			name = rrConf.Name
 		}
 
-		c, err := newReadClient(s.reg, name, &ClientConfig{
+		c, err := newReadClient(name, &ClientConfig{
 			URL:              rrConf.URL,
 			Timeout:          rrConf.RemoteTimeout,
 			HTTPClientConfig: rrConf.HTTPClientConfig,
