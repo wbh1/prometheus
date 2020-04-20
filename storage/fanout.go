@@ -226,7 +226,6 @@ func NewMergeQuerier(primary Querier, secondaries []Querier, merge VerticalSerie
 	for _, querier := range secondaries {
 		if _, ok := querier.(noopQuerier); !ok && querier != nil {
 			filtered = append(filtered, newGenericQuerierFrom(querier))
-			continue
 		}
 	}
 
@@ -458,7 +457,8 @@ type genericMergeSeriesSet struct {
 	querier     *mergeGenericQuerier
 }
 
-// VerticalSeriesMergeFunc returns merged series implementation that merges potentially time-overlapping series with same labels together.
+// VerticalSeriesMergeFunc returns merged series implementation that merges potentially time-overlapping series with
+// the same labels together. Series have samples ordered by time, but can be unordered between each other.
 type VerticalSeriesMergeFunc func(...Series) Series
 
 // NewMergeSeriesSet returns a new SeriesSet that merges many SeriesSet together.
@@ -471,7 +471,8 @@ func NewMergeSeriesSet(sets []SeriesSet, mergeFunc VerticalSeriesMergeFunc) Seri
 	return &seriesSetAdapter{newGenericMergeSeriesSet(genericSets, nil, (&seriesMergerAdapter{VerticalSeriesMergeFunc: mergeFunc}).Merge)}
 }
 
-// VerticalChunkSeriesMergeFunc returns merged chunk series implementation that merges potentially time-overlapping chunk series with same labels together.
+// VerticalChunkSeriesMergeFunc returns merged chunk series implementation that merges potentially time-overlapping
+// chunk series with the same labels together. Series have samples ordered by time, but can be unordered between each other.
 type VerticalChunkSeriesMergeFunc func(...ChunkSeries) ChunkSeries
 
 // NewMergeChunkSeriesSet returns a new ChunkSeriesSet that merges many SeriesSet together.
@@ -594,7 +595,7 @@ func (h *genericSeriesSetHeap) Pop() interface{} {
 }
 
 // ChainingSeriesMerge returns single series from many same series by chaining samples together.
-// In case of the timestamp overlap, the first overlapped sample is kept and the rest samples with the same timestamps
+// In case of the timestamp overlap, one (random) of the overlapped sample is kept and the rest samples with the same timestamps
 // are dropped. We expect the same labels for each given series.
 //
 // This works the best with replicated series, where data from two series are exactly the same. This does not work well
@@ -628,7 +629,8 @@ func (m *chainSeries) Iterator() chunkenc.Iterator {
 }
 
 // chainSampleIterator is responsible to iterate over samples from different iterators of the same time series.
-// If one or more samples overlap, the first one is kept and all others with the same timestamp are dropped.
+// If one or more samples overlap, one sample from random overlapped ones is kept and all others with the same
+// timestamp are dropped.
 type chainSampleIterator struct {
 	iterators []chunkenc.Iterator
 	h         samplesIteratorHeap
