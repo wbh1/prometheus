@@ -88,7 +88,7 @@ func (f *fanout) Querier(ctx context.Context, mint, maxt int64) (Querier, error)
 		secondaries = append(secondaries, querier)
 	}
 
-	return NewMergeQuerier(primary, secondaries, ChainingSeriesMerge), nil
+	return NewMergeQuerier(primary, secondaries, OverlappedSeriesMerge), nil
 }
 
 func (f *fanout) ChunkQuerier(ctx context.Context, mint, maxt int64) (ChunkQuerier, error) {
@@ -111,7 +111,7 @@ func (f *fanout) ChunkQuerier(ctx context.Context, mint, maxt int64) (ChunkQueri
 		secondaries = append(secondaries, querier)
 	}
 
-	return NewMergeChunkQuerier(primary, secondaries, NewCompactingChunkSeriesMerger(ChainingSeriesMerge)), nil
+	return NewMergeChunkQuerier(primary, secondaries, NewCompactingChunkSeriesMerger(OverlappedSeriesMerge)), nil
 }
 
 func (f *fanout) Appender() Appender {
@@ -594,14 +594,16 @@ func (h *genericSeriesSetHeap) Pop() interface{} {
 	return x
 }
 
-// ChainingSeriesMerge returns single series from many same series by chaining samples together.
+// OverlappedSeriesMerge returns single series from many same, potentially overlapping series by chaining samples together.
 // In case of the timestamp overlap, one (random) of the overlapped sample is kept and the rest samples with the same timestamps
 // are dropped. We expect the same labels for each given series.
 //
 // This works the best with replicated series, where data from two series are exactly the same. This does not work well
 // with "almost" the same data, e.g. from 2 Prometheus HA replicas. This is fine, since from the Prometheus perspective
 // this never happens.
-func ChainingSeriesMerge(s ...Series) Series {
+//
+// NOTE: Use this only when you see potentially overlapping series, as this introduces small overhead to handle overlaps.
+func OverlappedSeriesMerge(s ...Series) Series {
 	if len(s) == 0 {
 		return nil
 	}

@@ -128,7 +128,7 @@ func (c *chunkSetToSeriesSet) Next() bool {
 
 func (c *chunkSetToSeriesSet) At() Series {
 	// Series composed of same chunks for the same series.
-	return ChainingSeriesMerge(c.sameSeriesChunks...)
+	return OverlappedSeriesMerge(c.sameSeriesChunks...)
 }
 
 func (c *chunkSetToSeriesSet) Err() error {

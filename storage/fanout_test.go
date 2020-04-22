@@ -195,7 +195,7 @@ func TestMergeQuerierWithChainMerger(t *testing.T) {
 			}
 			qs = append(qs, tc.extraQueriers...)
 
-			merged, _, _ := NewMergeQuerier(qs[0], qs[1:], ChainingSeriesMerge).Select(false, nil)
+			merged, _, _ := NewMergeQuerier(qs[0], qs[1:], OverlappedSeriesMerge).Select(false, nil)
 			for merged.Next() {
 				testutil.Assert(t, tc.expected.Next(), "Expected Next() to be true")
 				actualSeries := merged.At()
@@ -564,7 +564,7 @@ func makeMergeSeriesSet(numSeriesSets, numSeries, numSamples int) SeriesSet {
 	for i := 0; i < numSeriesSets; i++ {
 		seriesSets = append(seriesSets, &genericSeriesSetAdapter{makeSeriesSet(numSeries, numSamples)})
 	}
-	return &seriesSetAdapter{newGenericMergeSeriesSet(seriesSets, nil, (&seriesMergerAdapter{VerticalSeriesMergeFunc: ChainingSeriesMerge}).Merge)}
+	return &seriesSetAdapter{newGenericMergeSeriesSet(seriesSets, nil, (&seriesMergerAdapter{VerticalSeriesMergeFunc: OverlappedSeriesMerge}).Merge)}
 }
 
 func benchmarkDrain(seriesSet SeriesSet, b *testing.B) {
