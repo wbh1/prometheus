@@ -2319,8 +2319,11 @@ The following meta labels are available on targets during [relabeling](#relabel_
 * `__meta_linode_instance_label`: the label of the linode instance
 * `__meta_linode_image`: the slug of the linode instance's image
 * `__meta_linode_private_ipv4`: the private IPv4 of the linode instance
+* `__meta_linode_private_ipv4_rdns`: the reverse-DNS lookup result of the private IPv4 address
 * `__meta_linode_public_ipv4`: the public IPv4 of the linode instance
+* `__meta_linode_public_ipv4_rdns`: the reverse-DNS lookup result of the public IPv4 address
 * `__meta_linode_public_ipv6`: the public IPv6 of the linode instance
+* `__meta_linode_public_ipv6_rdns`: the reverse-DNS lookup result of the public IPv6 address
 * `__meta_linode_region`: the region of the linode instance
 * `__meta_linode_type`: the type of the linode instance
 * `__meta_linode_status`: the status of the linode instance
