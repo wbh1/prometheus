@@ -93,6 +93,7 @@ type SDConfig struct {
 	RefreshInterval model.Duration `yaml:"refresh_interval"`
 	Port            int            `yaml:"port"`
 	TagSeparator    string         `yaml:"tag_separator,omitempty"`
+	EnableIPv6RDNS  bool           `yaml:"enable_ipv6_rdns_lookup"`
 }
 
 // Name returns the name of the Config.
@@ -130,6 +131,7 @@ type Discovery struct {
 	pollCount            int
 	lastResults          []*targetgroup.Group
 	eventPollingEnabled  bool
+	ipv6RDNSEnabled      bool
 }
 
 // NewDiscovery returns a new Discovery which periodically refreshes its targets.
@@ -140,6 +142,7 @@ func NewDiscovery(conf *SDConfig, logger log.Logger) (*Discovery, error) {
 		pollCount:            0,
 		lastRefreshTimestamp: time.Now().UTC(),
 		eventPollingEnabled:  true,
+		ipv6RDNSEnabled:      conf.EnableIPv6RDNS,
 	}
 
 	rt, err := config.NewRoundTripperFromConfig(conf.HTTPClientConfig, "linode_sd")
@@ -226,7 +229,11 @@ func (d *Discovery) refreshData(ctx context.Context) ([]*targetgroup.Group, erro
 	}
 
 	// Gather detailed IP address info for all IPs on all linode instances.
-	detailedIPs, err := d.client.ListIPAddresses(ctx, &linodego.ListOptions{PageSize: 500})
+	listOpts := &linodego.ListOptions{
+		PageSize:    500,
+		QueryParams: map[string]string{"skip_ipv6_rdns": fmt.Sprintf("%v", !d.ipv6RDNSEnabled)},
+	}
+	detailedIPs, err := d.client.ListIPAddresses(ctx, listOpts)
 	if err != nil {
 		failuresCount.Inc()
 		return nil, err

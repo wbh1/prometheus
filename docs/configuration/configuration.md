@@ -2396,6 +2396,9 @@ tls_config:
 
 # The time after which the linode instances are refreshed.
 [ refresh_interval: <duration> | default = 60s ]
+
+# Whether to enable rDNS lookups for discovered IPv6 addresses.
+[ enable_ipv6_rdns_lookup: <boolean> | default: false ]
 ```
 
 ### `<marathon_sd_config>`
